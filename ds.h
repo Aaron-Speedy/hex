@@ -60,7 +60,7 @@ do { \
   da_len(xs) = 0; \
 } while (0);
 
-#define da_push(xs, x) \
+#define da_push(xs, ...) \
 do { \
   if (da_len(xs) >= da_cap(xs)) { \
     size ncap = da_cap(xs) * 2; \
@@ -71,7 +71,7 @@ do { \
     (xs) += c; \
     da_cap(xs) = ncap; \
   } \
-  (xs)[da_len(xs)++] = x; \
+  (xs)[da_len(xs)++] = __VA_ARGS__; \
 } while (0);
 
 #define da_pop(xs) \

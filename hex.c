@@ -17,6 +17,7 @@ typedef struct {
     HEX_RED,
     HEX_BLUE,
   } board[11][11];
+  float values[11][11];
   int w, h;
   int turn_num;
 } Game;
@@ -38,6 +39,7 @@ void draw_hex(Game *g, int x, int y, bool draw_lines, int unit) {
     if (g->board[x][y] == HEX_EMPTY) c = WHITE;
     else if (g->board[x][y] == HEX_BLUE) c = BLUE;
     else if (g->board[x][y] == HEX_RED) c = RED;
+    // c.a *= g->values[x][y];
     DrawPoly(pos, 6, unit * SQRT3/3, 90, c);
   }
 }
@@ -181,6 +183,7 @@ int main() {
             }
 
             win_rate /= num_games;
+            game.values[x][y] = win_rate;
             if (win_rate > bwin_rate) {
               bwin_rate = win_rate;
               bx = x;
