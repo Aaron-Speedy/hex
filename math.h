@@ -9,12 +9,10 @@
 #include <assert.h>
 #include <math.h>
 
-#define min(x, y) ((x) < (y) ? (x) : (y))
-#define max(x, y) ((x) > (y) ? (x) : (y))
-
 typedef struct {
   float *buf;
   int w, h;
+  int x0, y0; // for kernels
 } Matrix;
 
 typedef enum {
@@ -88,9 +86,19 @@ void matrix_copy(Matrix src, Matrix dst) {
   }
 }
 
-Matrix kernel_apply(Arena *al, Matrix in, Matrix k, AutoPad auto_pad, int hs, int vs) {
+Matrix matrix_multiply(Arena *al, Matrix a, Matrix b) {
+  assert(a.w == b.h);
+
+  Matrix out = { .w = b.w, .h = a.h };
+  matrix_init(al, &out);
+
+  matrix_multiply_na(out, a, b);
+
+  return out;
+}
+
+Matrix make_autopad(Matrix in, Matrix k, AutoPad auto_pad, int hs, int vs) {
   Matrix out;
-  int x0, y0;
 
   switch (auto_pad) {
     case PADDING_SAME: {
@@ -98,22 +106,32 @@ Matrix kernel_apply(Arena *al, Matrix in, Matrix k, AutoPad auto_pad, int hs, in
       assert(k.h % 2);
       out.w = ceil((float) in.w / hs);
       out.h = ceil((float) in.h / vs);
-      x0 = -k.w/2; 
-      y0 = -k.h/2;
+      out.x0 = -k.w/2; 
+      out.y0 = -k.h/2;
     } break;
     case PADDING_VALID: {
       out.w = ceil((in.w - 2 * (int) (k.w/2)) / hs);
       out.h = ceil((in.h - 2 * (int) (k.h/2)) / vs);
-      x0 = y0 = 0;
+      out.x0 = out.y0 = 0;
     } break;
     default: assert(0);
   }
 
-  matrix_init(al, &out);
+  return out;
+}
+
+void kernel_apply_na(Arena *al, Matrix out, Matrix in, Matrix k, AutoPad auto_pad, int hs, int vs) {
+  {
+    Matrix a = make_autopad(in, k, auto_pad, hs, vs);
+    assert(out.w == a.w);
+    assert(out.h == a.h);
+    out.x0 = a.x0;
+    out.y0 = a.y0;
+  }
 
   int x, y, i, j;
-  for (y = y0, j = 0; j < out.h; y += vs, j++) {
-    for (x = x0, i = 0; i < out.w; x += hs, i++) {
+  for (y = out.y0, j = 0; j < out.h; y += vs, j++) {
+    for (x = out.x0, i = 0; i < out.w; x += hs, i++) {
       for (int dy = 0; dy < k.h; dy++) {
         for (int dx = 0; dx < k.w; dx++) {
           if (!in_bounds(x + dx, in.w)) continue;
@@ -123,7 +141,12 @@ Matrix kernel_apply(Arena *al, Matrix in, Matrix k, AutoPad auto_pad, int hs, in
       }
     }
   }
+}
 
+Matrix kernel_apply(Arena *al, Matrix in, Matrix k, AutoPad auto_pad, int hs, int vs) {
+  Matrix out = make_autopad(in, k, auto_pad, hs, vs);
+  matrix_init(al, &out);
+  kernel_apply_na(al, out, in, k, auto_pad, hs, vs);
   return out;
 }
 
@@ -139,17 +162,6 @@ void matrix_multiply_na(Matrix out, Matrix a, Matrix b) {
       }
     }
   }
-}
-
-Matrix matrix_multiply(Arena *al, Matrix a, Matrix b) {
-  assert(a.w == b.h);
-
-  Matrix out = { .w = b.w, .h = a.h };
-  matrix_init(al, &out);
-
-  matrix_multiply_na(out, a, b);
-
-  return out;
 }
 
 float randf(float min, float max) {
