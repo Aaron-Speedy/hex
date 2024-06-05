@@ -27,9 +27,13 @@ void matrix_print(Matrix m);
 void matrix_randomize(Matrix m, float min, float max);
 void matrix_copy(Matrix src, Matrix dst);
 void matrix_fill(Matrix m, float v);
-Matrix kernel_apply(Arena *al, Matrix in, Matrix k, AutoPad auto_pad, int hs, int vs);
+
 void matrix_multiply_na(Matrix out, Matrix a, Matrix b);
 Matrix matrix_multiply(Arena *al, Matrix a, Matrix b);
+
+Matrix make_autopad(Matrix in, Matrix k, AutoPad auto_pad, int hs, int vs);
+void kernel_apply_na(Arena *al, Matrix out, Matrix in, Matrix k, AutoPad auto_pad, int hs, int vs);
+Matrix kernel_apply(Arena *al, Matrix in, Matrix k, AutoPad auto_pad, int hs, int vs);
 
 float randf(float min, float max);
 int randi(int min, int max);
