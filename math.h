@@ -13,10 +13,6 @@
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
 typedef struct {
-  int x, y;
-} Vec2I;
-
-typedef struct {
   float *buf;
   int w, h;
 } Matrix;
@@ -43,7 +39,9 @@ int sign(int x);
 void clampf(float *x, float min, float max);
 void clampi(int *x, int min, int max);
 int in_bounds(int x, int max);
-int vec2i_at(Vec2I vec, int index);
+
+float maxf(float x, float y);
+float minf(float x, float y);
 
 #ifdef MATH_IMPL
 #define MATH_IMPL
@@ -91,43 +89,36 @@ void matrix_copy(Matrix src, Matrix dst) {
 }
 
 Matrix kernel_apply(Arena *al, Matrix in, Matrix k, AutoPad auto_pad, int hs, int vs) {
-  assert(k.w % 2);
-  assert(k.h % 2);
-
   Matrix out;
-  int c0x, c0y;
-  int bx, by;
+  int x0, y0;
 
   switch (auto_pad) {
     case PADDING_SAME: {
+      assert(k.w % 2);
+      assert(k.h % 2);
       out.w = ceil((float) in.w / hs);
       out.h = ceil((float) in.h / vs);
-      c0x = c0y = 0;
-      bx = in.w;
-      by = in.h;
+      x0 = -k.w/2; 
+      y0 = -k.h/2;
     } break;
     case PADDING_VALID: {
       out.w = ceil((in.w - 2 * (int) (k.w/2)) / hs);
       out.h = ceil((in.h - 2 * (int) (k.h/2)) / vs);
-      c0x = k.w/2;
-      c0y = k.h/2;
-      bx = in.w - k.w/2;
-      by = in.h - k.h/2;
+      x0 = y0 = 0;
     } break;
     default: assert(0);
   }
 
   matrix_init(al, &out);
 
-  for (int cx = c0x; cx < bx; cx += hs) {
-    for (int cy = c0y; cy < by; cy += vs) {
-      for (int x = 0; x < k.w; x++) {
-        for (int y = 0; y < k.h; y++) {
-          int ox = cx + x - k.w/2,
-              oy = cy + y - k.h/2;
-          float v = in_bounds(ox, in.w) && in_bounds(oy, in.h) ?
-                    m_at(in, ox, oy) : 0;
-          m_at(out, (cx - c0x)/hs, (cy - c0y)/vs) += v * m_at(k, x, y);
+  int x, y, i, j;
+  for (y = y0, j = 0; j < out.h; y += vs, j++) {
+    for (x = x0, i = 0; i < out.w; x += hs, i++) {
+      for (int dy = 0; dy < k.h; dy++) {
+        for (int dx = 0; dx < k.w; dx++) {
+          if (!in_bounds(x + dx, in.w)) continue;
+          if (!in_bounds(y + dy, in.h)) continue;
+          m_at(out, i, j) += m_at(k, dx, dy) * m_at(in, x + dx, y + dy);
         }
       }
     }
@@ -167,7 +158,7 @@ float randf(float min, float max) {
 }
 
 int randi(int min, int max) {
-  return (rand() % (max - min)) + min + 1;
+  return (rand() % (max - min + 1)) + min;
 }
 
 int sign(int x) {
@@ -192,17 +183,13 @@ int in_bounds(int x, int max) {
   return 1;
 }
 
-int vec2i_at(Vec2I vec, int index) {
-  switch (index) {
-  case 0:
-    return vec.x;
-  case 1:
-    return vec.y;
-  default:
-    assert(!"Out of bounds");
-  }
+float maxf(float x, float y) {
+  return x > y ? x : y;
 }
 
+float minf(float x, float y) {
+  return x <= y ? x : y;
+}
 #endif
 
 #endif
